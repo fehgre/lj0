@@ -7797,66 +7797,77 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 (function() {
-  console.log("🚀 Запуск универсальной системы свайпов для Android и iOS");
+  console.log("🎨 Возвращаем старый вид свайпов с сохранением функциональности");
   
-  // Основные константы
-  const SWIPE_THRESHOLD = 25;
+  const SWIPE_THRESHOLD = 24;
   const MIN_SWIPE_DISTANCE = 60;
-  const ANIM_MS = 300;
+  const ANIM_MS = 250;
   const MAX_VERTICAL_DEVIATION = 40;
 
-  // Переменные состояния
   let startX = 0, startY = 0;
   let currentX = 0, currentY = 0;
   let isSwiping = false;
   let swipeDirection = null;
   let horizontalDetected = false;
   let activeElement = null;
+  let nextElement = null;
 
-  // Добавляем стили
+  // Стили для старого вида анимации
   const swipeStyles = `
-    /* Основные стили для свайпов */
+    /* СТАРЫЙ ВИД АНИМАЦИИ */
     .swipeable-page {
-      position: fixed !important;
+      position: absolute !important;
       top: 0 !important;
       left: 0 !important;
       width: 100% !important;
       height: 100% !important;
-      transition: transform ${ANIM_MS}ms cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
-      z-index: 100;
+      will-change: transform;
+      transition: transform 0.25s ease-out;
+      z-index: 10;
     }
     
     .no-transition {
       transition: none !important;
     }
     
-    .swipe-in-progress {
-      overflow: hidden !important;
-      position: fixed !important;
-      width: 100% !important;
-      height: 100% !important;
+    .pe-none {
+      pointer-events: none !important;
     }
     
-    /* Фиксация страниц */
+    .swipe-in-progress {
+      overflow: hidden !important;
+    }
+    
+    .page-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    /* Фиксируем основные страницы в старом стиле */
     #main-page,
     #cabinet-page,
-    #storage-page,
+    #storage-page {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    /* Для дополнительных страниц */
     #payment-page,
     #expenses-page,
     #reviews-page,
     #profile-page {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100% !important;
-      height: 100% !important;
-    }
-    
-    /* Для iOS */
-    @supports (-webkit-touch-callout: none) {
-      .swipeable-page {
-        -webkit-overflow-scrolling: touch;
-      }
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1000;
+      background: var(--bg-color);
     }
   `;
   
@@ -7873,7 +7884,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     for (const pageId of pages) {
       const page = document.getElementById(pageId);
-      if (page && page.style.display !== 'none' && getComputedStyle(page).display !== 'none') {
+      if (page && page.style.display !== 'none') {
         return page;
       }
     }
@@ -7884,7 +7895,6 @@ document.addEventListener('DOMContentLoaded', function() {
   function canSwipe(element) {
     if (!element) return false;
     
-    // Запрещаем свайпы на интерактивных элементах
     const forbiddenElements = element.closest(
       'input, textarea, select, button, a, .no-swipe, ' +
       '.game-button, .add-to-cart-btn, .quantity-btn, ' +
@@ -7894,7 +7904,7 @@ document.addEventListener('DOMContentLoaded', function() {
     return !forbiddenElements;
   }
 
-  // Функция показа страницы
+  // Функция показа страницы (СТАРЫЙ СТИЛЬ)
   function showPage(pageId) {
     const pages = [
       'main-page', 'cabinet-page', 'storage-page',
@@ -7904,10 +7914,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Скрываем все страницы
     pages.forEach(id => {
       const page = document.getElementById(id);
-      if (page) {
-        page.style.display = 'none';
-        page.style.transform = '';
-      }
+      if (page) page.style.display = 'none';
     });
     
     // Показываем нужную страницу
@@ -7933,7 +7940,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const navId = navMap[pageElement.id];
     if (!navId) return;
     
-    // Убираем активность со всех элементов
     const navItems = document.querySelectorAll('.nav-item');
     navItems.forEach(item => {
       item.classList.remove('active');
@@ -7941,7 +7947,6 @@ document.addEventListener('DOMContentLoaded', function() {
       if (indicator) indicator.remove();
     });
     
-    // Добавляем активность текущему
     const activeNav = document.getElementById(navId);
     if (activeNav) {
       activeNav.classList.add('active');
@@ -7951,63 +7956,143 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Функция обработки основного свайпа
-  function handleMainSwipe(direction) {
-    const currentPage = getCurrentPage();
-    if (!currentPage) return;
+  // Функция подготовки следующей страницы (СТАРЫЙ СТИЛЬ)
+  function prepareNextPage(direction) {
+    activeElement = getCurrentPage();
+    if (!activeElement) return false;
+
+    const main = document.getElementById("main-page");
+    const cab = document.getElementById("cabinet-page");
+    const stor = document.getElementById("storage-page");
+
+    // Очищаем предыдущие состояния
+    if (nextElement) {
+      nextElement.style.display = "none";
+      nextElement.classList.remove("swipeable-page", "no-transition", "pe-none");
+      nextElement.style.transform = "";
+      nextElement = null;
+    }
+
+    // Старая логика навигации
+    if (activeElement.id === "main-page") {
+      nextElement = (direction === "left") ? cab : stor;
+    } 
+    else if (activeElement.id === "cabinet-page" && direction === "right") {
+      nextElement = main;
+    }
+    else if (activeElement.id === "storage-page" && direction === "left") {
+      nextElement = main;
+    }
+
+    if (!nextElement) return false;
+
+    // Запрещаем взаимодействие во время свайпа
+    document.body.classList.add('swipe-in-progress');
+
+    // СТАРАЯ АНИМАЦИЯ - именно такой вид был раньше
+    nextElement.style.display = "block";
+    nextElement.classList.add("swipeable-page", "no-transition", "pe-none");
+    nextElement.style.zIndex = "11";
+    nextElement.style.transform = (direction === "right") ? "translateX(-100%)" : "translateX(100%)";
     
-    const pageMap = {
-      'main-page': { 'left': 'cabinet-page', 'right': 'storage-page' },
-      'cabinet-page': { 'right': 'main-page' },
-      'storage-page': { 'left': 'main-page' }
-    };
+    activeElement.classList.add("swipeable-page", "no-transition");
+    activeElement.style.zIndex = "12";
+    activeElement.style.transform = "translateX(0)";
     
-    const nextPageId = pageMap[currentPage.id]?.[direction];
-    if (!nextPageId) return;
-    
-    // Анимация перехода
-    const nextPage = document.getElementById(nextPageId);
-    if (!nextPage) return;
-    
-    nextPage.style.display = 'block';
-    nextPage.style.zIndex = '101';
-    nextPage.style.transform = direction === 'right' ? 'translateX(100%)' : 'translateX(-100%)';
-    
-    requestAnimationFrame(() => {
-      currentPage.style.transform = direction === 'right' ? 'translateX(-100%)' : 'translateX(100%)';
-      nextPage.style.transform = 'translateX(0)';
-      
-      setTimeout(() => {
-        currentPage.style.display = 'none';
-        currentPage.style.transform = '';
-        nextPage.style.transform = '';
-        nextPage.style.zIndex = '';
-        
-        showPage(nextPageId);
-      }, ANIM_MS);
-    });
+    return true;
   }
 
-  // Функция обработки свайпа назад
+  // Функция завершения свайпа (СТАРЫЙ СТИЛЬ)
+  function finishSwipe(success) {
+    if (!nextElement || !activeElement) {
+      clearAfterCancel();
+      return;
+    }
+
+    activeElement.classList.remove("no-transition");
+    nextElement.classList.remove("no-transition");
+
+    if (success) {
+      // СТАРАЯ АНИМАЦИЯ УХОДА
+      activeElement.style.transform = (swipeDirection === "right") ? "translateX(100%)" : "translateX(-100%)";
+      nextElement.style.transform = "translateX(0)";
+
+      setTimeout(() => {
+        clearAfterSuccess();
+        updateNavIndicator(nextElement);
+      }, ANIM_MS);
+    } else {
+      // СТАРАЯ АНИМАЦИЯ ВОЗВРАТА
+      activeElement.style.transform = "translateX(0)";
+      nextElement.style.transform = (swipeDirection === "right") ? "translateX(-100%)" : "translateX(100%)";
+      setTimeout(clearAfterCancel, ANIM_MS);
+    }
+  }
+
+  function clearAfterSuccess() {
+    if (activeElement) {
+      activeElement.style.display = "none";
+      activeElement.classList.remove("swipeable-page", "no-transition", "pe-none");
+      activeElement.style.transform = "";
+      activeElement.style.zIndex = "";
+    }
+    if (nextElement) {
+      nextElement.classList.remove("swipeable-page", "no-transition", "pe-none");
+      nextElement.style.transform = "";
+      nextElement.style.zIndex = "";
+      
+      // Активируем новую страницу
+      showPage(nextElement.id);
+      
+      activeElement = nextElement;
+      nextElement = null;
+    }
+    
+    document.body.classList.remove('swipe-in-progress');
+    isSwiping = false;
+  }
+
+  function clearAfterCancel() {
+    if (nextElement) {
+      nextElement.style.display = "none";
+      nextElement.classList.remove("swipeable-page", "no-transition", "pe-none");
+      nextElement.style.transform = "";
+      nextElement.style.zIndex = "";
+      nextElement = null;
+    }
+    if (activeElement) {
+      activeElement.classList.remove("swipeable-page", "no-transition", "pe-none");
+      activeElement.style.transform = "";
+      activeElement.style.zIndex = "";
+    }
+    
+    document.body.classList.remove('swipe-in-progress');
+    isSwiping = false;
+  }
+
+  // Функция обработки свайпа назад (СТАРЫЙ СТИЛЬ)
   function handleBackSwipe() {
     const currentPage = getCurrentPage();
     if (!currentPage) return;
     
     let hideFunction;
     switch(currentPage.id) {
-      case 'payment-page': hideFunction = hidePaymentPage; break;
-      case 'expenses-page': hideFunction = hideExpensesPage; break;
-      case 'reviews-page': hideFunction = hideReviewsPage; break;
-      case 'profile-page': hideFunction = hideProfilePage; break;
+      case 'payment-page': hideFunction = window.hidePaymentPage; break;
+      case 'expenses-page': hideFunction = window.hideExpensesPage; break;
+      case 'reviews-page': hideFunction = window.hideReviewsPage; break;
+      case 'profile-page': hideFunction = window.hideProfilePage; break;
       default: return;
     }
     
     if (hideFunction) {
+      // СТАРАЯ АНИМАЦИЯ СВАЙПА НАЗАД
       currentPage.style.transform = 'translateX(100%)';
+      currentPage.style.transition = `transform ${ANIM_MS}ms ease-out`;
       
       setTimeout(() => {
         hideFunction();
         currentPage.style.transform = '';
+        currentPage.style.transition = '';
       }, ANIM_MS);
       
       triggerVibration();
@@ -8030,15 +8115,12 @@ document.addEventListener('DOMContentLoaded', function() {
     isSwiping = true;
     horizontalDetected = false;
     swipeDirection = null;
-    activeElement = getCurrentPage();
     
     document.body.classList.add('swipe-in-progress');
   }
 
   function handleTouchMove(e) {
     if (!isSwiping) return;
-    
-    e.preventDefault();
     
     const t = e.touches[0];
     currentX = t.clientX;
@@ -8052,16 +8134,45 @@ document.addEventListener('DOMContentLoaded', function() {
       if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
         horizontalDetected = true;
         swipeDirection = dx > 0 ? 'right' : 'left';
+        
+        if (e.cancelable) {
+          e.preventDefault();
+        }
       }
     }
     
     // Если определили горизонтальный свайп
-    if (horizontalDetected && activeElement) {
-      const maxOffset = window.innerWidth * 0.8;
-      const offset = Math.max(-maxOffset, Math.min(maxOffset, dx));
+    if (horizontalDetected) {
+      const currentPage = getCurrentPage();
+      const isBackPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
+        .includes(currentPage.id);
       
-      activeElement.classList.add('no-transition');
-      activeElement.style.transform = `translateX(${offset}px)`;
+      if (isBackPage && swipeDirection === 'right') {
+        // Свайп назад - старая анимация
+        const maxOffset = window.innerWidth * 0.5;
+        const offset = Math.min(dx, maxOffset);
+        currentPage.style.transform = `translateX(${offset}px)`;
+        currentPage.style.transition = 'none';
+      }
+      else if (!isBackPage) {
+        // Основная навигация - готовим следующую страницу в старом стиле
+        if (!nextElement) {
+          prepareNextPage(swipeDirection);
+        }
+        
+        if (activeElement && nextElement) {
+          const maxOffset = window.innerWidth * 0.8;
+          const offset = Math.max(-maxOffset, Math.min(maxOffset, dx));
+          
+          activeElement.style.transform = `translateX(${offset}px)`;
+          
+          if (swipeDirection === 'right') {
+            nextElement.style.transform = `translateX(${offset - window.innerWidth}px)`;
+          } else {
+            nextElement.style.transform = `translateX(${offset + window.innerWidth}px)`;
+          }
+        }
+      }
     }
   }
 
@@ -8070,24 +8181,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const dx = currentX - startX;
     const currentPage = getCurrentPage();
+    const isBackPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
+      .includes(currentPage.id);
     
-    if (horizontalDetected && activeElement && Math.abs(dx) > MIN_SWIPE_DISTANCE) {
-      // Определяем тип свайпа
-      const isBackPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
-        .includes(currentPage.id);
-      
+    if (horizontalDetected && Math.abs(dx) > MIN_SWIPE_DISTANCE) {
       if (isBackPage && swipeDirection === 'right') {
-        // Свайп назад
+        // Завершаем свайп назад
         handleBackSwipe();
-      } else if (!isBackPage) {
-        // Основная навигация
-        handleMainSwipe(swipeDirection);
+      } 
+      else if (!isBackPage && nextElement) {
+        // Завершаем основную навигацию
+        finishSwipe(true);
       }
     } else {
-      // Возвращаем на место
-      if (activeElement) {
-        activeElement.style.transform = '';
-        activeElement.classList.remove('no-transition');
+      // Отменяем свайп
+      if (isBackPage) {
+        currentPage.style.transform = '';
+        currentPage.style.transition = `transform ${ANIM_MS}ms ease-out`;
+      } else if (nextElement) {
+        finishSwipe(false);
       }
     }
     
@@ -8095,26 +8207,25 @@ document.addEventListener('DOMContentLoaded', function() {
     isSwiping = false;
     horizontalDetected = false;
     swipeDirection = null;
-    activeElement = null;
     document.body.classList.remove('swipe-in-progress');
   }
 
   // Инициализация
   function initSwipeSystem() {
-    console.log("📱 Инициализация свайпов для Android и iOS");
+    console.log("🎯 Инициализация свайпов со старым видом");
     
-    // Убираем старые обработчики если есть
+    // Убираем старые обработчики
     document.removeEventListener('touchstart', handleTouchStart);
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
     
-    // Добавляем новые обработчики
+    // Добавляем новые
     document.addEventListener('touchstart', handleTouchStart, { passive: false });
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
     document.addEventListener('touchcancel', handleTouchEnd, { passive: true });
     
-    // Убедимся что все страницы правильно positioned
+    // Добавляем классы для старого вида
     setTimeout(() => {
       const pages = [
         'main-page', 'cabinet-page', 'storage-page',
@@ -8128,23 +8239,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
       
-      // Обновляем навигацию
-      const currentPage = getCurrentPage();
-      updateNavIndicator(currentPage);
+      updateNavIndicator(getCurrentPage());
       
-      console.log("✅ Система свайпов готова к работе");
+      console.log("✅ Старый вид свайпов восстановлен");
     }, 100);
   }
 
-  // Запускаем инициализацию
+  // Запуск
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initSwipeSystem);
   } else {
     initSwipeSystem();
   }
-
-  // Функция для ручного вызова если нужно
-  window.reinitSwipes = initSwipeSystem;
 
 })();
 </script>
