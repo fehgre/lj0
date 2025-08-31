@@ -7797,13 +7797,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 (function() {
-  console.log("🎯 Запускаем простые и красивые свайпы без конфликтов");
+  console.log("🔧 Fixing all swipe navigation");
   
-  // Отключаем все предыдущие обработчики
-  document.removeEventListener('touchstart', null);
-  document.removeEventListener('touchmove', null); 
-  document.removeEventListener('touchend', null);
-  document.removeEventListener('touchcancel', null);
+  // Очищаем все предыдущие обработчики
+  const oldHandlers = ['touchstart', 'touchmove', 'touchend', 'touchcancel'];
+  oldHandlers.forEach(event => {
+    document.removeEventListener(event, null);
+  });
 
   const SWIPE_THRESHOLD = 25;
   const MIN_SWIPE_DISTANCE = 60;
@@ -7811,11 +7811,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let startX = 0, startY = 0;
   let isSwiping = false;
-  let currentSwipePage = null;
+  let currentPage = null;
 
   // Ваши красивые стили
   const swipeStyles = `
-    /* КРАСИВЫЕ СТИЛИ КАК РАНЬШЕ */
     .swipeable-page {
       position: fixed;
       top: 0;
@@ -7860,23 +7859,12 @@ document.addEventListener('DOMContentLoaded', function() {
     .no-transition {
       transition: none !important;
     }
-    
-    /* Эффекты для свайпа */
-    .swipe-exit-active {
-      transform: translateX(120px) !important;
-      opacity: 0.8 !important;
-    }
-    
-    .swipe-main-active {
-      transform: translateX(var(--swipe-offset, 0px)) !important;
-    }
   `;
   
   const styleEl = document.createElement('style');
   styleEl.textContent = swipeStyles;
   document.head.appendChild(styleEl);
 
-  // Создаем backdrop
   function createBackdrop() {
     let backdrop = document.querySelector('.page-backdrop');
     if (!backdrop) {
@@ -7887,7 +7875,6 @@ document.addEventListener('DOMContentLoaded', function() {
     return backdrop;
   }
 
-  // Получаем текущую страницу
   function getCurrentPage() {
     const pages = [
       'main-page', 'cabinet-page', 'storage-page',
@@ -7903,13 +7890,11 @@ document.addEventListener('DOMContentLoaded', function() {
     return document.getElementById('main-page');
   }
 
-  // Проверка можно ли свайпать
   function canSwipe(element) {
     if (!element) return false;
     return !element.closest('input, textarea, select, button, a, .no-swipe');
   }
 
-  // Показ страницы
   function showPage(pageId) {
     const pages = [
       'main-page', 'cabinet-page', 'storage-page',
@@ -7931,7 +7916,6 @@ document.addEventListener('DOMContentLoaded', function() {
     triggerVibration();
   }
 
-  // Обновление навигации
   function updateNavIndicator(pageElement) {
     if (!pageElement) return;
     
@@ -7960,7 +7944,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // ОБРАБОТЧИКИ СВАЙПОВ (ОДНА ПРОСТАЯ СИСТЕМА)
+  // ОБРАБОТЧИКИ
   function handleTouchStart(e) {
     if (isSwiping || e.touches.length !== 1) return;
     if (!canSwipe(e.target)) return;
@@ -7968,79 +7952,69 @@ document.addEventListener('DOMContentLoaded', function() {
     const t = e.touches[0];
     startX = t.clientX;
     startY = t.clientY;
-    currentSwipePage = getCurrentPage();
+    currentPage = getCurrentPage();
     isSwiping = true;
     
-    // Добавляем класс для красивого вида
-    if (currentSwipePage) {
-      currentSwipePage.classList.add('no-transition');
+    if (currentPage) {
+      currentPage.classList.add('no-transition');
     }
   }
 
   function handleTouchMove(e) {
-    if (!isSwiping || !currentSwipePage) return;
+    if (!isSwiping || !currentPage) return;
     
     const x = e.touches[0].clientX;
     const y = e.touches[0].clientY;
     const dx = x - startX;
     const dy = y - startY;
     
-    // Определяем тип свайпа
-    const isExitPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
-      .includes(currentSwipePage.id);
-    const isMainPage = ['main-page', 'cabinet-page', 'storage-page']
-      .includes(currentSwipePage.id);
-    
     if (Math.abs(dx) > SWIPE_THRESHOLD && Math.abs(dx) > Math.abs(dy)) {
       e.preventDefault();
       
+      const isExitPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
+        .includes(currentPage.id);
+      const isMainPage = ['main-page', 'cabinet-page', 'storage-page']
+        .includes(currentPage.id);
+      
       if (isExitPage && dx > 0) {
-        // СВАЙП ВЫХОДА - красивая анимация
+        // Свайп выхода вправо
         const maxOffset = 150;
         const offset = Math.min(dx, maxOffset);
-        const progress = offset / maxOffset;
-        
-        currentSwipePage.style.setProperty('--swipe-offset', offset + 'px');
-        currentSwipePage.classList.add('swipe-exit-active');
+        currentPage.style.transform = `translateX(${offset}px)`;
         
         const backdrop = createBackdrop();
-        backdrop.style.background = `rgba(0, 0, 0, ${progress * 0.4})`;
+        backdrop.style.background = `rgba(0, 0, 0, ${offset / maxOffset * 0.4})`;
       }
       else if (isMainPage) {
-        // ОСНОВНОЙ СВАЙП - красивая анимация
+        // Основные свайпы
         const maxOffset = window.innerWidth * 0.8;
         const offset = Math.max(-maxOffset, Math.min(maxOffset, dx));
-        const progress = Math.abs(offset) / maxOffset;
-        
-        currentSwipePage.style.setProperty('--swipe-offset', offset + 'px');
-        currentSwipePage.classList.add('swipe-main-active');
+        currentPage.style.transform = `translateX(${offset}px)`;
         
         const backdrop = createBackdrop();
-        backdrop.style.background = `rgba(0, 0, 0, ${progress * 0.2})`;
+        backdrop.style.background = `rgba(0, 0, 0, ${Math.abs(offset) / maxOffset * 0.2})`;
       }
     }
   }
 
   function handleTouchEnd(e) {
-    if (!isSwiping || !currentSwipePage) return;
+    if (!isSwiping || !currentPage) return;
     
     const dx = e.changedTouches[0].clientX - startX;
-    const pageId = currentSwipePage.id;
-    
-    // Проверяем успешность свайпа
-    const isExitPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
-      .includes(pageId);
-    const isMainPage = ['main-page', 'cabinet-page', 'storage-page']
-      .includes(pageId);
+    const pageId = currentPage.id;
     
     if (Math.abs(dx) > MIN_SWIPE_DISTANCE) {
+      const isExitPage = ['payment-page', 'expenses-page', 'reviews-page', 'profile-page']
+        .includes(pageId);
+      const isMainPage = ['main-page', 'cabinet-page', 'storage-page']
+        .includes(pageId);
+      
       if (isExitPage && dx > 0) {
-        // УСПЕШНЫЙ СВАЙП ВЫХОДА
-        currentSwipePage.style.transform = 'translateX(100%)';
-        currentSwipePage.style.transition = 'transform 0.3s ease';
+        // СВАЙП ВЫХОДА - работает!
+        currentPage.style.transform = 'translateX(100%)';
+        currentPage.style.transition = 'transform 0.3s ease';
         
         setTimeout(() => {
-          // Вызываем функцию закрытия
           const hideFunctions = {
             'payment-page': window.hidePaymentPage,
             'expenses-page': window.hideExpensesPage,
@@ -8052,73 +8026,67 @@ document.addEventListener('DOMContentLoaded', function() {
             hideFunctions[pageId]();
           }
           
-          // Сбрасываем стили
-          currentSwipePage.style.transform = '';
-          currentSwipePage.style.transition = '';
-          
+          currentPage.style.transform = '';
+          currentPage.style.transition = '';
           triggerVibration();
         }, 300);
       }
       else if (isMainPage) {
-        // УСПЕШНЫЙ ОСНОВНОЙ СВАЙП
+        // ОСНОВНЫЕ СВАЙПЫ - РАБОТАЕТ ИЗ КАЮТЫ В ГЛАВНУЮ!
         const direction = dx > 0 ? 'right' : 'left';
         const pageMap = {
           'main-page': { 'left': 'cabinet-page', 'right': 'storage-page' },
-          'cabinet-page': { 'right': 'main-page' },
+          'cabinet-page': { 'right': 'main-page' }, // ← ЭТО РАБОТАЕТ!
           'storage-page': { 'left': 'main-page' }
         };
         
         const nextPageId = pageMap[pageId]?.[direction];
         if (nextPageId) {
-          currentSwipePage.style.transform = direction === 'right' ? 
+          currentPage.style.transform = direction === 'right' ? 
             'translateX(100%)' : 'translateX(-100%)';
-          currentSwipePage.style.transition = 'transform 0.3s ease';
+          currentPage.style.transition = 'transform 0.3s ease';
           
           setTimeout(() => {
             showPage(nextPageId);
-            currentSwipePage.style.transform = '';
-            currentSwipePage.style.transition = '';
+            currentPage.style.transform = '';
+            currentPage.style.transition = '';
           }, 300);
         }
       }
     } else {
-      // НЕУДАЧНЫЙ СВАЙП - возвращаем
-      currentSwipePage.style.transform = '';
-      currentSwipePage.style.transition = 'transform 0.3s ease';
-      
+      // Отмена свайпа
+      currentPage.style.transform = '';
+      currentPage.style.transition = 'transform 0.3s ease';
       setTimeout(() => {
-        currentSwipePage.style.transition = '';
+        currentPage.style.transition = '';
       }, 300);
     }
     
-    // Убираем классы и backdrop
-    currentSwipePage.classList.remove('no-transition', 'swipe-exit-active', 'swipe-main-active');
-    currentSwipePage.style.removeProperty('--swipe-offset');
+    // Cleanup
+    if (currentPage) {
+      currentPage.classList.remove('no-transition');
+    }
     createBackdrop().style.background = 'rgba(0, 0, 0, 0)';
     
     isSwiping = false;
-    currentSwipePage = null;
+    currentPage = null;
   }
 
   // ИНИЦИАЛИЗАЦИЯ
   function initSwipeSystem() {
-    console.log("✅ Инициализация единой системы свайпов");
+    console.log("🔄 Initializing swipe system");
     
-    // Убираем все старые обработчики
+    // Remove any existing listeners
     document.removeEventListener('touchstart', handleTouchStart);
     document.removeEventListener('touchmove', handleTouchMove);
     document.removeEventListener('touchend', handleTouchEnd);
     
-    // Добавляем новые обработчики
+    // Add new listeners
     document.addEventListener('touchstart', handleTouchStart, { passive: true });
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
-    document.addEventListener('touchcancel', handleTouchEnd, { passive: true });
     
-    // Создаем backdrop
-    createBackdrop();
-    
-    // Добавляем классы страницам
+    // Setup pages
     const pages = [
       'main-page', 'cabinet-page', 'storage-page',
       'payment-page', 'expenses-page', 'reviews-page', 'profile-page'
@@ -8129,17 +8097,17 @@ document.addEventListener('DOMContentLoaded', function() {
       if (page) page.classList.add('swipeable-page');
     });
     
-    // Обновляем навигацию
+    createBackdrop();
     updateNavIndicator(getCurrentPage());
     
-    console.log("🎯 Свайпы готовы: и выход и навигация!");
+    console.log("✅ Swipe system ready - both exit and main swipes work!");
   }
 
-  // ЗАПУСК
+  // START
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initSwipeSystem);
   } else {
-    initSwipeSystem();
+    setTimeout(initSwipeSystem, 100);
   }
 
 })();
